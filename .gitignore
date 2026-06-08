@@ -1,0 +1,12 @@
+backend/target/
+backend/data/
+backend/uploads/
+frontend/node_modules/
+frontend/dist/
+ai-service/.venv/
+ai-service/__pycache__/
+ai-service/.pytest_cache/
+*.pyc
+.env
+.idea/
+.vscode/
