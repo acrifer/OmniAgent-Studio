@@ -1,17 +1,17 @@
 <template>
   <section class="section-stack">
-    <div class="grid three">
-      <MetricCard label="会话总数" :value="conversations.length" hint="当前账号智能体会话" :icon="Bot" />
-      <MetricCard label="最近运行" :value="latestStatus" hint="Agent Run 状态" :icon="Workflow" />
-      <MetricCard label="累计 Token" :value="totalTokens" hint="最近会话调用消耗" :icon="Sparkles" />
+    <div class="console-grid">
+      <MetricCard class="span-4" label="会话总数" :value="conversations.length" hint="当前账号智能体会话" trend="Conversation archive" :icon="Bot" tone="cyan" />
+      <MetricCard class="span-4" label="最近运行" :value="latestStatus" hint="Agent Run 状态" trend="Latest workflow status" :icon="Workflow" tone="green" />
+      <MetricCard class="span-4" label="累计 Token" :value="totalTokens" hint="最近会话调用消耗" trend="Recent cost surface" :icon="Sparkles" tone="amber" />
     </div>
 
-    <div class="grid two">
-      <ActionPanel eyebrow="Recent Conversations" title="最近会话" description="从这里快速进入智能体对话，继续追问、上传文件或查看执行过程。">
+    <div class="console-grid">
+      <ActionPanel class="span-8" eyebrow="Recent Conversations" title="最近会话" description="从这里快速进入智能体对话，继续追问、上传文件或查看执行过程。">
         <template #action>
           <RouterLink to="/chat"><el-button type="primary">进入智能体</el-button></RouterLink>
         </template>
-        <EmptyState v-if="!conversations.length" :icon="Bot" title="暂无会话" description="创建会话后会显示在这里。" />
+        <EmptyState v-if="!conversations.length" :icon="Bot" title="暂无会话" description="创建会话后会显示在这里。" compact />
         <div v-else class="inline-list">
           <RouterLink v-for="item in conversations.slice(0, 5)" :key="item.id" to="/chat" class="surface-strip">
             <div class="title-row">
@@ -25,7 +25,7 @@
         </div>
       </ActionPanel>
 
-      <ActionPanel eyebrow="Agent Capability" title="能力概览" description="平台面向真实任务，不暴露复杂编排器，只让用户选择要启用的能力。">
+      <ActionPanel class="span-4" eyebrow="Agent Capability" title="能力概览" description="平台面向真实任务，不暴露复杂编排器，只让用户选择要启用的能力。">
         <div class="inline-list">
           <div class="surface-strip"><strong>最新运行</strong><p class="muted">{{ latestTaskText }}</p></div>
           <div class="surface-strip"><strong>知识库</strong><p class="muted">{{ knowledgeText }}</p></div>

@@ -1,5 +1,5 @@
 <template>
-  <section class="grid two">
+  <section class="config-layout">
     <ActionPanel eyebrow="Human Feedback" title="提交反馈" description="把人工评分写入业务库；配置 Langfuse 后可同步为 Score。">
       <template #action>
         <el-button type="primary" :icon="Send" @click="submit">提交反馈</el-button>
@@ -24,9 +24,9 @@
     </ActionPanel>
     <ActionPanel eyebrow="Feedback Loop" title="反馈如何产生价值">
       <div class="inline-list">
-        <div class="surface-strip"><strong>结果质量</strong><p class="muted">定位哪些 Agent 输出需要优化。</p></div>
-        <div class="surface-strip"><strong>Prompt 与 RAG 迭代</strong><p class="muted">对低分输出回看 Prompt、引用和 Trace。</p></div>
-        <div class="surface-strip"><strong>产品闭环</strong><p class="muted">评分能帮助识别回答不完整、引用不足或工具失败。</p></div>
+        <div class="surface-strip"><div class="title-row"><strong>结果质量</strong><span class="status-badge">Answer</span></div><p class="muted">定位哪些 Agent 输出需要优化。</p></div>
+        <div class="surface-strip"><div class="title-row"><strong>Prompt 与 RAG 迭代</strong><span class="status-badge is-success">RAG</span></div><p class="muted">对低分输出回看 Prompt、引用和 Trace。</p></div>
+        <div class="surface-strip"><div class="title-row"><strong>产品闭环</strong><span class="status-badge is-warning">Score</span></div><p class="muted">评分能帮助识别回答不完整、引用不足或工具失败。</p></div>
       </div>
     </ActionPanel>
   </section>
