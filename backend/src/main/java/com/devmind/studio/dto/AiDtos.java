@@ -62,6 +62,7 @@ public class AiDtos {
     ) {}
 
     public record StartOmniAgentRunRequest(
+            Long userId,
             Long conversationId,
             Long runId,
             Long messageId,
@@ -70,6 +71,8 @@ public class AiDtos {
             Long knowledgeBaseId,
             List<String> documents,
             List<Map<String, Object>> files,
+            List<Map<String, Object>> tools,
+            List<Map<String, Object>> skills,
             String modelName,
             String callbackUrl
     ) {}
@@ -100,6 +103,6 @@ public class AiDtos {
             Map<String, Object> metadata
     ) {}
 
-    public record KnowledgeIngestRequest(Long knowledgeBaseId, Long documentId, String text) {}
+    public record KnowledgeIngestRequest(Long userId, Long knowledgeBaseId, Long documentId, String fileName, String text) {}
     public record KnowledgeIngestResponse(String status, Integer chunkCount, String message) {}
 }

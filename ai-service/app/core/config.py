@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
     tavily_api_key: str | None = None
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_collection: str = "omniagent_chunks"
+    embedding_model: str = "text-embedding-v3"
+    vision_model: str = "qwen-vl-plus"
     deepseek_timeout_seconds: float = 60.0
     langfuse_enabled: bool = False
     langfuse_public_key: str | None = None

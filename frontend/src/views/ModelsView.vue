@@ -1,6 +1,6 @@
 <template>
   <section class="grid two">
-    <ActionPanel eyebrow="Model Providers" title="模型供应商" description="保存模型供应商元数据。真实 API Key 仍建议放在服务端环境变量中。">
+    <ActionPanel eyebrow="Model Providers" title="模型供应商" description="保存 LLM 供应商元数据。真实 API Key 仍放在服务端环境变量中；Embedding 与 Vision 也复用 OpenAI-compatible 接口。">
       <template #action><el-button type="primary" :icon="Save" @click="save">保存配置</el-button></template>
       <el-form label-position="top">
         <el-form-item label="供应商"><el-select v-model="form.provider" style="width:100%"><el-option label="DeepSeek" value="deepseek" /><el-option label="通义千问" value="qwen" /><el-option label="OpenAI" value="openai" /></el-select></el-form-item>
@@ -15,6 +15,13 @@
           <div class="title-row"><strong>{{ item.provider }}</strong><span class="status-badge" :class="{ 'is-success': item.enabled }">{{ item.enabled ? 'ENABLED' : 'DISABLED' }}</span></div>
           <p class="muted">{{ item.modelName }} · {{ item.baseUrl }}</p>
         </div>
+      </div>
+    </ActionPanel>
+    <ActionPanel eyebrow="Runtime Roles" title="运行时模型角色">
+      <div class="inline-list">
+        <div class="surface-strip"><strong>LLM</strong><p class="muted">Planner / Reader / Critic / Answer 使用当前会话模型。</p></div>
+        <div class="surface-strip"><strong>Embedding</strong><p class="muted">知识库入库与检索使用服务端 `EMBEDDING_MODEL`。</p></div>
+        <div class="surface-strip"><strong>Vision</strong><p class="muted">图片理解使用服务端 `VISION_MODEL`，通过 OpenAI-compatible 多模态接口调用。</p></div>
       </div>
     </ActionPanel>
   </section>

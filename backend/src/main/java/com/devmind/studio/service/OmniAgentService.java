@@ -10,6 +10,8 @@ import com.devmind.studio.repository.*;
 import org.apache.tika.Tika;
 import org.apache.tika.exception.TikaException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,6 +23,7 @@ import java.time.LocalDateTime;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.net.MalformedURLException;
 import java.util.*;
 
 @Service
@@ -148,9 +151,16 @@ public class OmniAgentService {
                 .filter(text -> text != null && !text.isBlank())
                 .toList();
         List<Map<String, Object>> filePayload = conversationFiles.stream().map(this::toAiFilePayload).toList();
+        List<Map<String, Object>> toolPayload = toolConfigs.findByUserIdOrderByUpdatedAtDesc(userId).stream()
+                .map(this::toToolPayload)
+                .toList();
+        List<Map<String, Object>> skillPayload = skillConfigs.findByUserIdOrderByUpdatedAtDesc(userId).stream()
+                .map(this::toSkillPayload)
+                .toList();
         String callback = "http://localhost:" + serverPort + "/api/internal/ai/omni-events";
         try {
             var response = fastApiClient.startOmniAgentRun(new StartOmniAgentRunRequest(
+                    userId,
                     conversation.getId(),
                     run.getId(),
                     messageId,
@@ -159,6 +169,8 @@ public class OmniAgentService {
                     run.getKnowledgeBaseId(),
                     documents,
                     filePayload,
+                    toolPayload,
+                    skillPayload,
                     run.getModelName(),
                     callback
             ));
@@ -216,7 +228,7 @@ public class OmniAgentService {
         document = knowledgeDocuments.save(document);
         if ("PARSED".equals(uploaded.getParseStatus())) {
             try {
-                var response = fastApiClient.ingestKnowledge(new KnowledgeIngestRequest(knowledgeBaseId, document.getId(), uploaded.getParsedText()));
+                var response = fastApiClient.ingestKnowledge(new KnowledgeIngestRequest(userId, knowledgeBaseId, document.getId(), uploaded.getFileName(), uploaded.getParsedText()));
                 document.setIngestStatus(response.status());
                 if (response.message() != null && !"READY".equals(response.status())) {
                     document.setErrorMessage(response.message());
@@ -357,6 +369,15 @@ public class OmniAgentService {
         return Map.of("totalTokens", totalTokens, "records", records);
     }
 
+    public Resource downloadFile(Long fileId) throws MalformedURLException {
+        UploadedFile file = files.findById(fileId).orElseThrow(() -> new IllegalArgumentException("文件不存在"));
+        Path path = Path.of(file.getFilePath());
+        if (!Files.exists(path)) {
+            throw new IllegalArgumentException("文件不存在");
+        }
+        return new UrlResource(path.toUri());
+    }
+
     private UploadedFile parseAndSaveFile(Long userId, Long conversationId, Long knowledgeBaseId, MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("上传文件不能为空");
@@ -418,7 +439,30 @@ public class OmniAgentService {
         payload.put("fileName", file.getFileName());
         payload.put("fileType", file.getFileType());
         payload.put("parseStatus", file.getParseStatus());
+        payload.put("fileCategory", "IMAGE".equals(file.getParseStatus()) ? "IMAGE" : "DOCUMENT");
+        payload.put("downloadUrl", "http://localhost:" + serverPort + "/api/internal/ai/files/" + file.getId());
         payload.put("parsedTextPreview", preview(file.getParsedText(), 1200));
+        return payload;
+    }
+
+    private Map<String, Object> toToolPayload(ToolConfig tool) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", tool.getId());
+        payload.put("toolType", tool.getToolType());
+        payload.put("name", tool.getName());
+        payload.put("endpoint", tool.getEndpoint());
+        payload.put("enabled", tool.getEnabled());
+        payload.put("configJson", tool.getConfigJson());
+        return payload;
+    }
+
+    private Map<String, Object> toSkillPayload(SkillConfig skill) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", skill.getId());
+        payload.put("name", skill.getName());
+        payload.put("description", skill.getDescription());
+        payload.put("enabled", skill.getEnabled());
+        payload.put("configJson", skill.getConfigJson());
         return payload;
     }
 

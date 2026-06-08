@@ -6,7 +6,12 @@ import com.devmind.studio.dto.ApiResponse;
 import com.devmind.studio.service.AgentTaskService;
 import com.devmind.studio.service.OmniAgentService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.MalformedURLException;
 
 @RestController
 @RequestMapping("/api/internal/ai")
@@ -41,5 +46,16 @@ public class InternalAiController {
         }
         omniAgentService.handleEvent(request);
         return ApiResponse.ok(true);
+    }
+
+    @GetMapping("/files/{id}")
+    public ResponseEntity<Resource> downloadFile(@RequestHeader(value = "X-Internal-Token", required = false) String token,
+                                                 @PathVariable Long id) throws MalformedURLException {
+        if (!internalToken.equals(token)) {
+            throw new IllegalArgumentException("内部 token 无效");
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(omniAgentService.downloadFile(id));
     }
 }

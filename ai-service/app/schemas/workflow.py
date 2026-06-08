@@ -63,6 +63,7 @@ class RequirementDraftResponse(BaseModel):
 
 
 class StartOmniAgentRunRequest(BaseModel):
+    userId: int | None = None
     conversationId: int
     runId: int
     messageId: int | None = None
@@ -71,6 +72,8 @@ class StartOmniAgentRunRequest(BaseModel):
     knowledgeBaseId: int | None = None
     documents: list[str] = Field(default_factory=list)
     files: list[dict[str, Any]] = Field(default_factory=list)
+    tools: list[dict[str, Any]] = Field(default_factory=list)
+    skills: list[dict[str, Any]] = Field(default_factory=list)
     modelName: str = "deepseek-v4-flash"
     callbackUrl: str
 
@@ -81,8 +84,10 @@ class StartOmniAgentRunResponse(BaseModel):
 
 
 class KnowledgeIngestRequest(BaseModel):
+    userId: int | None = None
     knowledgeBaseId: int
     documentId: int
+    fileName: str | None = None
     text: str
 
 

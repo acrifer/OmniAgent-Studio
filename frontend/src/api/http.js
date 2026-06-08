@@ -27,45 +27,8 @@ export const authApi = {
   register: (data) => http.post('/auth/register', data)
 }
 
-export const projectApi = {
-  list: () => http.get('/projects'),
-  create: (data) => http.post('/projects', data),
-  detail: (id) => http.get(`/projects/${id}`),
-  saveRequirement: (id, data) => http.put(`/projects/${id}/requirement`, data),
-  uploadDocument: (id, file) => {
-    const form = new FormData()
-    form.append('file', file)
-    return http.post(`/projects/${id}/documents`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-  },
-  startTask: (id, data) => http.post(`/projects/${id}/agent-tasks`, data),
-  latestTask: (id) => http.get(`/projects/${id}/agent-tasks/latest`),
-  latestReport: (id) => http.get(`/projects/${id}/reports/latest`),
-  archive: (id) => http.post(`/projects/${id}/archive`)
-}
-
-export const taskApi = {
-  status: (id) => http.get(`/agent-tasks/${id}/status`),
-  results: (id) => http.get(`/agent-tasks/${id}/results`),
-  regenerate: (id, data) => http.post(`/agent-tasks/${id}/regenerate`, data)
-}
-
-export const promptApi = {
-  list: () => http.get('/prompts'),
-  create: (data) => http.post('/prompts', data)
-}
-
-export const statsApi = {
-  tokens: (projectId) => http.get('/stats/tokens', { params: { projectId } })
-}
-
 export const feedbackApi = {
   create: (data) => http.post('/feedback', data)
-}
-
-export const assistantApi = {
-  generateRequirementDraft: (data) => http.post('/ai/requirement-draft', data)
 }
 
 export const conversationApi = {

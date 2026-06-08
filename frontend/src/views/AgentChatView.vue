@@ -24,7 +24,7 @@
     </div>
 
     <div class="section-stack">
-      <ActionPanel eyebrow="Ask OmniAgent" title="一次完整的智能体任务" description="选择能力模式，附加文件或知识库，然后启动多 Agent 协作。">
+      <ActionPanel eyebrow="Ask OmniAgent" title="多模态智能体任务" description="提问、附加文档/图片/知识库/工具，查看 Planner 到 Answer 的完整执行链路。">
         <template #action>
           <el-button type="primary" :icon="Send" :loading="running" @click="submitQuestion">启动智能体</el-button>
         </template>
@@ -130,11 +130,11 @@ import MarkdownPanel from '../components/MarkdownPanel.vue'
 
 const modes = [
   { value: 'AUTO', label: '自动模式', hint: '按任务自动选择 Agent', icon: BrainCircuit },
-  { value: 'SEARCH', label: '联网搜索', hint: '需要 Tavily Key', icon: Globe2 },
-  { value: 'RAG', label: '知识库问答', hint: '基于入库文档回答', icon: LibraryBig },
+  { value: 'SEARCH', label: '联网搜索', hint: 'Tavily 实时检索', icon: Globe2 },
+  { value: 'RAG', label: '知识库问答', hint: 'Qdrant 向量检索', icon: LibraryBig },
   { value: 'DOCUMENT', label: '文档阅读', hint: '总结上传资料', icon: FileSearch },
-  { value: 'VISION', label: '图片理解', hint: '需要视觉模型', icon: Image },
-  { value: 'TOOL', label: '工具调用', hint: '调用 MCP/Skill', icon: Wrench }
+  { value: 'VISION', label: '图片理解', hint: '多模态模型识图', icon: Image },
+  { value: 'TOOL', label: '工具调用', hint: '调用 HTTP/MCP 工具', icon: Wrench }
 ]
 const conversations = ref([])
 const knowledgeBases = ref([])

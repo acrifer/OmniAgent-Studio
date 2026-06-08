@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import operator
 import time
@@ -24,6 +25,7 @@ from app.schemas.workflow import (
     StartOmniAgentRunRequest,
     TaskStatus,
 )
+from app.services.vector_store import vector_store
 
 
 AGENTS = ["PLANNER", "SEARCH", "READER", "RAG", "VISION", "TOOL", "CRITIC", "ANSWER"]
@@ -80,7 +82,7 @@ class OmniAgentService:
             return TaskStatus(aiTaskId=ai_task_id, status="NOT_FOUND", progress=0, nodes={})
         return TaskStatus(aiTaskId=ai_task_id, status=task.status, progress=task.progress, nodes=task.nodes)
 
-    def ingest(self, request: KnowledgeIngestRequest) -> KnowledgeIngestResponse:
+    async def ingest(self, request: KnowledgeIngestRequest) -> KnowledgeIngestResponse:
         text = (request.text or "").strip()
         if not text:
             return KnowledgeIngestResponse(status="FAILED", chunkCount=0, message="知识库文档没有可入库的文本。")
@@ -89,16 +91,33 @@ class OmniAgentService:
         for index in range(0, len(text), size):
             chunk = text[index:index + size].strip()
             if chunk:
-                chunks.append({"documentId": request.documentId, "chunkIndex": len(chunks), "content": chunk})
+                chunks.append({
+                    "userId": request.userId,
+                    "knowledgeBaseId": request.knowledgeBaseId,
+                    "documentId": request.documentId,
+                    "fileName": request.fileName,
+                    "chunkIndex": len(chunks),
+                    "content": chunk,
+                })
         self.knowledge_chunks.setdefault(request.knowledgeBaseId, [])
         self.knowledge_chunks[request.knowledgeBaseId] = [
             chunk for chunk in self.knowledge_chunks[request.knowledgeBaseId]
             if chunk.get("documentId") != request.documentId
         ] + chunks
+        points = []
+        for chunk in chunks:
+            embedding = await llm_client.generate_embedding(chunk["content"])
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{request.knowledgeBaseId}:{request.documentId}:{chunk['chunkIndex']}"))
+            points.append({"id": point_id, "vector": embedding, "payload": chunk})
+        try:
+            await vector_store.delete_document_chunks(request.knowledgeBaseId, request.documentId)
+        except Exception:
+            pass
+        await vector_store.upsert_chunks(points)
         return KnowledgeIngestResponse(status="READY", chunkCount=len(chunks), message="知识库文本已完成切片入库。")
 
-    def retrieve(self, request: KnowledgeRetrieveRequest) -> KnowledgeRetrieveResponse:
-        chunks = self._retrieve_chunks(request.knowledgeBaseId, request.query, request.topK)
+    async def retrieve(self, request: KnowledgeRetrieveRequest) -> KnowledgeRetrieveResponse:
+        chunks = await self._retrieve_chunks(None, request.knowledgeBaseId, request.query, request.topK)
         return KnowledgeRetrieveResponse(chunks=chunks)
 
     async def mcp_call(self, request: McpCallRequest) -> dict[str, Any]:
@@ -204,9 +223,9 @@ class OmniAgentService:
         if agent == "RAG":
             return await self._rag_agent(state)
         if agent == "VISION":
-            raise RuntimeError("当前未配置视觉模型或图片二进制传输，无法执行图片理解。请配置 Qwen-VL/OpenAI Vision 并上传可访问图片。")
+            return await self._vision_agent(state)
         if agent == "TOOL":
-            raise RuntimeError("当前会话未配置 MCP 工具 endpoint，无法执行工具调用。")
+            return await self._tool_agent(state)
         system = "你是 OmniAgent Studio 的内部智能体。只输出合法 JSON，不要代码块，不要额外解释。"
         with trace_recorder.generation(trace_id, agent, prompt, request.modelName) as observation_id:
             output = await llm_client.generate_json(system, prompt, request.modelName)
@@ -247,13 +266,119 @@ class OmniAgentService:
         request = state["request"]
         if request.knowledgeBaseId is None:
             raise RuntimeError("未选择知识库，无法执行知识库问答。")
-        chunks = self._retrieve_chunks(request.knowledgeBaseId, request.question, 5)
+        chunks = await self._retrieve_chunks(request.userId, request.knowledgeBaseId, request.question, 5)
         if not chunks:
             raise RuntimeError("知识库没有可检索内容，请先上传并完成入库。")
         payload = {"query": request.question, "chunks": chunks, "citations": [{"documentId": c["documentId"], "chunkIndex": c["chunkIndex"]} for c in chunks]}
         return AgentOutput(agent_type="RAG", content_json=payload, content_markdown=self._markdown("RAG", payload), prompt_tokens=0, completion_tokens=0, latency_ms=1)
 
-    def _retrieve_chunks(self, knowledge_base_id: int, query: str, top_k: int) -> list[dict[str, Any]]:
+    async def _vision_agent(self, state: OmniState) -> AgentOutput:
+        request = state["request"]
+        image_files = [file for file in request.files if file.get("parseStatus") == "IMAGE" and file.get("downloadUrl")]
+        if not image_files:
+            raise RuntimeError("未找到可读取的图片文件，无法执行图片理解。")
+        outputs = []
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_latency_ms = 0
+        for file in image_files:
+            image_data_url = await self._download_image_as_data_url(file)
+            prompt = f"""
+用户问题：{request.question}
+图片文件：{file.get("fileName")}
+
+请输出 JSON，字段包括 summary、visibleText、keyObjects、answerHints、confidence、citations。
+citations 使用图片文件名作为来源，不要编造图片中不存在的内容。
+"""
+            output = await llm_client.generate_vision_json(prompt, image_data_url)
+            outputs.append({"fileName": file.get("fileName"), **output.content_json})
+            total_prompt_tokens += output.prompt_tokens
+            total_completion_tokens += output.completion_tokens
+            total_latency_ms += output.latency_ms
+        payload = {
+            "images": outputs,
+            "citations": [{"fileName": item.get("fileName"), "type": "image"} for item in outputs],
+        }
+        return AgentOutput(
+            agent_type="VISION",
+            content_json=payload,
+            content_markdown=self._markdown("VISION", payload),
+            prompt_tokens=total_prompt_tokens,
+            completion_tokens=total_completion_tokens,
+            latency_ms=total_latency_ms,
+        )
+
+    async def _tool_agent(self, state: OmniState) -> AgentOutput:
+        request = state["request"]
+        enabled_tools = [tool for tool in request.tools if tool.get("enabled", True) and tool.get("endpoint")]
+        if not enabled_tools:
+            raise RuntimeError("当前用户未配置可调用的工具 endpoint，无法执行工具调用。")
+        selected = self._select_tool(enabled_tools, request.question)
+        start = time.perf_counter()
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                selected["endpoint"],
+                json={
+                    "toolName": selected.get("name"),
+                    "input": {
+                        "question": request.question,
+                        "mode": request.mode,
+                        "context": self._input_payload("TOOL", state),
+                    },
+                },
+            )
+            response.raise_for_status()
+            try:
+                result = response.json()
+            except ValueError:
+                result = {"text": response.text}
+        payload = {
+            "toolName": selected.get("name"),
+            "toolType": selected.get("toolType"),
+            "endpoint": selected.get("endpoint"),
+            "input": {"question": request.question},
+            "result": result,
+            "usedTools": [str(selected.get("name"))],
+        }
+        return AgentOutput(agent_type="TOOL", content_json=payload, content_markdown=self._markdown("TOOL", payload), prompt_tokens=0, completion_tokens=0, latency_ms=int((time.perf_counter() - start) * 1000))
+
+    async def _download_image_as_data_url(self, file: dict[str, Any]) -> str:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(file["downloadUrl"], headers={"X-Internal-Token": settings.internal_token})
+            response.raise_for_status()
+        mime_type = file.get("fileType") or response.headers.get("content-type") or "image/png"
+        encoded = base64.b64encode(response.content).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
+
+    def _select_tool(self, tools: list[dict[str, Any]], question: str) -> dict[str, Any]:
+        lowered = question.lower()
+        for tool in tools:
+            name = str(tool.get("name", "")).lower()
+            if name and name in lowered:
+                return tool
+        return tools[0]
+
+    async def _retrieve_chunks(self, user_id: int | None, knowledge_base_id: int, query: str, top_k: int) -> list[dict[str, Any]]:
+        try:
+            query_vector = await llm_client.generate_embedding(query)
+            results = await vector_store.search(knowledge_base_id, query_vector, top_k, user_id)
+            chunks = []
+            for item in results:
+                payload = item.get("payload", {})
+                chunks.append({
+                    "userId": payload.get("userId"),
+                    "knowledgeBaseId": payload.get("knowledgeBaseId"),
+                    "documentId": payload.get("documentId"),
+                    "fileName": payload.get("fileName"),
+                    "chunkIndex": payload.get("chunkIndex"),
+                    "content": str(payload.get("content", ""))[:900],
+                    "score": item.get("score"),
+                })
+            return chunks
+        except Exception:
+            return self._retrieve_chunks_in_memory(knowledge_base_id, query, top_k)
+
+    def _retrieve_chunks_in_memory(self, knowledge_base_id: int, query: str, top_k: int) -> list[dict[str, Any]]:
         terms = {part.lower() for part in query.replace("，", " ").replace("。", " ").split() if len(part) > 1}
         scored = []
         for chunk in self.knowledge_chunks.get(knowledge_base_id, []):

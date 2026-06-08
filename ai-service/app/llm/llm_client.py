@@ -15,6 +15,75 @@ class LlmClient:
     async def generate_json(self, system: str, prompt: str, model_name: str = "deepseek-v4-flash", temperature: float = 0.2) -> AgentOutput:
         return await self._chat_json("OMNI", system, prompt, model_name or settings.default_model, temperature)
 
+    async def generate_embedding(self, text: str, model_name: str | None = None) -> list[float]:
+        model = model_name or settings.embedding_model
+        provider = self._provider_for_model(model)
+        api_key, base_url = self._provider_config(provider)
+        if not api_key:
+            raise RuntimeError(f"{provider.upper()} API Key 未配置，无法生成向量。")
+        try:
+            async with httpx.AsyncClient(timeout=settings.deepseek_timeout_seconds) as client:
+                response = await client.post(
+                    f"{base_url.rstrip('/')}/embeddings",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={"model": model, "input": text[:8000]},
+                )
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPStatusError as exc:
+            detail = self._response_error_detail(exc.response)
+            raise RuntimeError(f"{provider.upper()} Embedding 调用失败：HTTP {exc.response.status_code}，{detail}") from exc
+        except httpx.RequestError as exc:
+            raise RuntimeError(f"{provider.upper()} Embedding 请求失败：{exc}") from exc
+        return [float(item) for item in data["data"][0]["embedding"]]
+
+    async def generate_vision_json(self, prompt: str, image_data_url: str, model_name: str | None = None) -> AgentOutput:
+        model = model_name or settings.vision_model
+        provider = self._provider_for_model(model)
+        api_key, base_url = self._provider_config(provider)
+        if not api_key:
+            raise RuntimeError(f"{provider.upper()} API Key 未配置，无法调用视觉模型 {model}。")
+        start = time.perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=settings.deepseek_timeout_seconds) as client:
+                response = await client.post(
+                    f"{base_url.rstrip('/')}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": "你是 OmniAgent Studio 的 Vision Agent。只输出合法 JSON。"},
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": prompt},
+                                    {"type": "image_url", "image_url": {"url": image_data_url}},
+                                ],
+                            },
+                        ],
+                        "temperature": 0.2,
+                        "stream": False,
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPStatusError as exc:
+            detail = self._response_error_detail(exc.response)
+            raise RuntimeError(f"{provider.upper()} Vision 调用失败：HTTP {exc.response.status_code}，{detail}") from exc
+        except httpx.RequestError as exc:
+            raise RuntimeError(f"{provider.upper()} Vision 请求失败：{exc}") from exc
+        content = data["choices"][0]["message"]["content"]
+        parsed = self._parse_json_content(content)
+        usage = data.get("usage", {})
+        return AgentOutput(
+            agent_type="VISION",
+            content_json=parsed,
+            content_markdown=self._to_markdown("VISION", parsed),
+            prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),
+            completion_tokens=int(usage.get("completion_tokens", 0) or 0),
+            latency_ms=int((time.perf_counter() - start) * 1000),
+        )
+
     async def _chat_json(self, agent_type: str, system: str, prompt: str, model_name: str, temperature: float) -> AgentOutput:
         provider = self._provider_for_model(model_name)
         api_key, base_url = self._provider_config(provider)
@@ -170,7 +239,7 @@ class LlmClient:
 
     def _provider_for_model(self, model_name: str) -> str:
         lowered = (model_name or "").lower()
-        if lowered.startswith("qwen") or "dashscope" in lowered:
+        if lowered.startswith("qwen") or "dashscope" in lowered or lowered.startswith("text-embedding"):
             return "qwen"
         if lowered.startswith("gpt") or lowered.startswith("o1") or lowered.startswith("o3") or lowered.startswith("o4"):
             return "openai"

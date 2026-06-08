@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+from typing import Any
+
 from fastapi import APIRouter, Header, HTTPException
 
 from app.core.config import settings
@@ -40,13 +43,13 @@ async def agent_run_status(ai_task_id: str, x_internal_token: str | None = Heade
 @router.post("/ai/knowledge/ingest", response_model=KnowledgeIngestResponse)
 async def ingest_knowledge(request: KnowledgeIngestRequest, x_internal_token: str | None = Header(default=None)):
     check_token(x_internal_token)
-    return omni_agent_service.ingest(request)
+    return await omni_agent_service.ingest(request)
 
 
 @router.post("/ai/knowledge/retrieve", response_model=KnowledgeRetrieveResponse)
 async def retrieve_knowledge(request: KnowledgeRetrieveRequest, x_internal_token: str | None = Header(default=None)):
     check_token(x_internal_token)
-    return omni_agent_service.retrieve(request)
+    return await omni_agent_service.retrieve(request)
 
 
 @router.post("/ai/tools/mcp-call")
@@ -58,6 +61,20 @@ async def mcp_call(request: McpCallRequest, x_internal_token: str | None = Heade
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/ai/tools/demo/echo")
+async def demo_echo_tool(payload: dict[str, Any]):
+    """Demo HTTP tool for presentations. Configure this endpoint in the Tool page."""
+    tool_name = payload.get("toolName") or "echo-tool"
+    input_payload = payload.get("input", payload)
+    return {
+        "toolName": tool_name,
+        "status": "SUCCESS",
+        "message": "Echo demo tool executed successfully.",
+        "received": input_payload,
+        "serverTime": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @router.get("/ai/health/models")
 async def model_health(x_internal_token: str | None = Header(default=None)):
     check_token(x_internal_token)
@@ -66,5 +83,8 @@ async def model_health(x_internal_token: str | None = Header(default=None)):
         "qwen": {"configured": bool(settings.qwen_api_key), "baseUrl": settings.qwen_base_url},
         "openai": {"configured": bool(settings.openai_api_key), "baseUrl": settings.openai_base_url},
         "search": {"configured": bool(settings.tavily_api_key), "provider": "tavily"},
+        "qdrant": {"configured": bool(settings.qdrant_url), "baseUrl": settings.qdrant_url},
+        "embedding": {"model": settings.embedding_model},
+        "vision": {"model": settings.vision_model},
         "langfuse": {"configured": bool(settings.langfuse_enabled)},
     }
