@@ -1,5 +1,5 @@
 <template>
-  <section class="grid two">
+  <section class="config-layout">
     <ActionPanel eyebrow="Token Intelligence" title="Token 消耗查询" description="按会话查看每个 Agent 的模型调用、Token 和耗时。">
       <template #action>
         <el-button type="primary" :icon="Search" @click="load">查询</el-button>
@@ -11,22 +11,24 @@
           </el-select>
         </el-form-item>
       </el-form>
-      <MetricCard label="总 Token" :value="stats.totalTokens || 0" hint="当前会话累计" :icon="ChartNoAxesColumn" />
+      <MetricCard label="总 Token" :value="stats.totalTokens || 0" hint="当前会话累计" trend="Token usage by selected conversation" :icon="ChartNoAxesColumn" tone="cyan" />
       <div class="chip-list" v-if="agentStats.length">
         <span v-for="item in agentStats" :key="item.agent">{{ item.agent }} · {{ item.total }}</span>
       </div>
     </ActionPanel>
 
     <ActionPanel eyebrow="Usage Records" title="调用明细">
-      <EmptyState v-if="!(stats.records || []).length" :icon="ChartNoAxesColumn" title="暂无统计" description="完成一次 Agent 工作流后会产生 Token 记录。" />
-      <el-table v-else :data="stats.records || []">
-        <el-table-column prop="agentType" label="Agent" width="120" />
-        <el-table-column prop="modelName" label="模型" width="160" />
-        <el-table-column prop="promptTokens" label="输入" width="100" />
-        <el-table-column prop="completionTokens" label="输出" width="100" />
-        <el-table-column prop="totalTokens" label="总 Token" width="120" />
-        <el-table-column prop="latencyMs" label="耗时(ms)" width="120" />
-      </el-table>
+      <EmptyState v-if="!(stats.records || []).length" :icon="ChartNoAxesColumn" title="暂无统计" description="完成一次 Agent 工作流后会产生 Token 记录。" compact />
+      <div v-else class="table-shell">
+        <el-table :data="stats.records || []">
+          <el-table-column prop="agentType" label="Agent" width="120" />
+          <el-table-column prop="modelName" label="模型" min-width="160" />
+          <el-table-column prop="promptTokens" label="输入" width="100" />
+          <el-table-column prop="completionTokens" label="输出" width="100" />
+          <el-table-column prop="totalTokens" label="总 Token" width="120" />
+          <el-table-column prop="latencyMs" label="耗时(ms)" width="120" />
+        </el-table>
+      </div>
     </ActionPanel>
   </section>
 </template>

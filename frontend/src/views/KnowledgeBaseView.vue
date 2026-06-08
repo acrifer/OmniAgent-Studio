@@ -1,5 +1,5 @@
 <template>
-  <section class="grid two">
+  <section class="config-layout">
     <ActionPanel eyebrow="RAG Workspace" title="知识库" description="上传文档后会解析文本并入库，RAG Agent 在回答时检索可引用片段。">
       <template #action>
         <el-button type="primary" :icon="Plus" @click="createKb">新建知识库</el-button>
@@ -22,8 +22,8 @@
           <el-button :icon="UploadCloud">上传文档</el-button>
         </el-upload>
       </template>
-      <EmptyState v-if="!activeKbId" :icon="LibraryBig" title="选择知识库" description="选择或新建知识库后上传文档。" />
-      <EmptyState v-else-if="!documents.length" :icon="LibraryBig" title="暂无文档" description="支持 txt、md、pdf、docx。" />
+      <EmptyState v-if="!activeKbId" :icon="LibraryBig" title="选择知识库" description="选择或新建知识库后上传文档。" compact />
+      <EmptyState v-else-if="!documents.length" :icon="LibraryBig" title="暂无文档" description="支持 txt、md、pdf、docx。" compact />
       <div v-else class="inline-list">
         <div v-for="doc in documents" :key="doc.id" class="surface-strip">
           <div class="title-row">

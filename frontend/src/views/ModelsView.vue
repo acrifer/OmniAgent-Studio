@@ -1,5 +1,5 @@
 <template>
-  <section class="grid two">
+  <section class="config-layout">
     <ActionPanel eyebrow="Model Providers" title="模型供应商" description="保存模型供应商元数据。真实 API Key 仍建议放在服务端环境变量中。">
       <template #action><el-button type="primary" :icon="Save" @click="save">保存配置</el-button></template>
       <el-form label-position="top">
@@ -10,6 +10,7 @@
       </el-form>
     </ActionPanel>
     <ActionPanel eyebrow="Configured Models" title="已保存配置">
+      <EmptyState v-if="!providers.length" title="暂无模型配置" description="保存供应商元数据后会显示在这里。" compact />
       <div class="inline-list">
         <div v-for="item in providers" :key="item.id" class="surface-strip">
           <div class="title-row"><strong>{{ item.provider }}</strong><span class="status-badge" :class="{ 'is-success': item.enabled }">{{ item.enabled ? 'ENABLED' : 'DISABLED' }}</span></div>
@@ -26,6 +27,7 @@ import { ElMessage } from 'element-plus'
 import { Save } from 'lucide-vue-next'
 import { modelProviderApi } from '../api/http'
 import ActionPanel from '../components/ActionPanel.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 const providers = ref([])
 const form = reactive({ provider: 'deepseek', modelName: 'deepseek-v4-flash', baseUrl: 'https://api.deepseek.com', enabled: true, configJson: '{}' })

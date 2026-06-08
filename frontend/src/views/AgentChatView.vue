@@ -1,13 +1,10 @@
 <template>
   <section class="agent-workbench">
-    <div class="panel conversation-rail">
-      <div class="title-row">
-        <div>
-          <h2>会话</h2>
-          <p class="muted">问题和运行记录按会话归档</p>
-        </div>
+    <ActionPanel class="conversation-rail" density="compact" eyebrow="Sessions" title="会话">
+      <template #action>
         <el-button type="primary" :icon="Plus" circle @click="createConversation" />
-      </div>
+      </template>
+      <p class="muted" style="margin: 0;">问题和运行记录按会话归档</p>
       <div class="inline-list conversation-list">
         <button
           v-for="item in conversations"
@@ -20,19 +17,24 @@
           <span>{{ item.mode }} · {{ item.modelName }}</span>
         </button>
       </div>
-      <EmptyState v-if="!conversations.length" :icon="Bot" title="暂无会话" description="创建一个会话后即可开始提问。" />
-    </div>
+      <EmptyState v-if="!conversations.length" :icon="Bot" title="暂无会话" description="创建一个会话后即可开始提问。" compact />
+    </ActionPanel>
 
     <div class="section-stack">
       <ActionPanel eyebrow="Ask OmniAgent" title="一次完整的智能体任务" description="选择能力模式，附加文件或知识库，然后启动多 Agent 协作。">
         <template #action>
-          <el-button type="primary" :icon="Send" :loading="running" @click="submitQuestion">启动智能体</el-button>
+          <div class="actions">
+            <el-upload :auto-upload="false" :show-file-list="true" :on-change="uploadConversationFile">
+              <el-button :icon="UploadCloud">上传文档或图片</el-button>
+            </el-upload>
+            <el-button type="primary" :icon="Send" :loading="running" @click="submitQuestion">启动智能体</el-button>
+          </div>
         </template>
         <div class="composer-grid">
           <div class="composer-form">
             <el-form label-position="top">
               <el-form-item label="问题">
-                <el-input v-model="question" type="textarea" :rows="7" placeholder="例如：总结我上传的论文，并结合知识库给出可执行方案" />
+                <el-input v-model="question" type="textarea" :rows="8" placeholder="例如：总结我上传的论文，并结合知识库给出可执行方案" />
               </el-form-item>
               <div class="mode-grid">
                 <button v-for="mode in modes" :key="mode.value" class="mode-card" :class="{ active: form.mode === mode.value }" @click.prevent="form.mode = mode.value">
@@ -55,18 +57,16 @@
                   </el-select>
                 </el-form-item>
               </div>
-              <el-upload :auto-upload="false" :show-file-list="true" :on-change="uploadConversationFile">
-                <el-button :icon="UploadCloud">上传文档或图片</el-button>
-              </el-upload>
             </el-form>
           </div>
           <div class="composer-preview">
             <div class="preview-block">
               <div class="preview-head">
-                <strong>上下文</strong>
+                <strong>上下文文件</strong>
                 <span class="status-badge">{{ detail?.files?.length || 0 }} 个文件</span>
               </div>
-              <div class="inline-list">
+              <EmptyState v-if="!(detail?.files || []).length" :icon="UploadCloud" title="暂无上下文" description="上传文档或图片后会在这里显示解析状态。" compact />
+              <div v-else class="inline-list">
                 <div v-for="file in detail?.files || []" :key="file.id" class="surface-strip">
                   <div class="title-row">
                     <strong>{{ file.fileName }}</strong>
@@ -80,16 +80,16 @@
         </div>
       </ActionPanel>
 
-      <div class="grid two visual-grid">
-        <ActionPanel eyebrow="Agent Graph" title="执行可视化">
+      <div class="console-grid">
+        <ActionPanel class="span-7" eyebrow="Agent Graph" title="执行可视化" tone="dark">
           <div class="agent-flow">
             <VueFlow :nodes="flowNodes" :edges="flowEdges" fit-view-on-init :nodes-draggable="false" :zoom-on-scroll="false">
-              <Background pattern-color="#8ccbc3" :gap="18" />
+              <Background pattern-color="#2f6fed" :gap="18" />
             </VueFlow>
           </div>
         </ActionPanel>
-        <ActionPanel eyebrow="Trace Timeline" title="步骤详情">
-          <EmptyState v-if="!steps.length" :icon="Workflow" title="等待运行" description="启动智能体后，这里会显示每个 Agent 的输入、输出、Token 和耗时。" />
+        <ActionPanel class="span-5" eyebrow="Trace Timeline" title="步骤详情">
+          <EmptyState v-if="!steps.length" :icon="Workflow" title="等待运行" description="启动智能体后，这里会显示每个 Agent 的输入、输出、Token 和耗时。" compact />
           <div v-else class="inline-list">
             <button v-for="step in steps" :key="step.id" class="step-card" @click="selectedStep = step">
               <div class="title-row">
@@ -110,8 +110,8 @@
   <el-drawer v-model="drawerVisible" title="Agent Step Detail" size="48%">
     <MarkdownPanel :title="selectedStep?.agentType" :content="selectedStep?.contentMarkdown || selectedStep?.errorMessage" />
     <div class="grid two" style="margin-top: 14px;">
-      <MarkdownPanel title="输入" :content="selectedStep?.inputJson" />
-      <MarkdownPanel title="输出 JSON" :content="selectedStep?.outputJson" />
+      <MarkdownPanel title="输入" :content="selectedStep?.inputJson" code />
+      <MarkdownPanel title="输出 JSON" :content="selectedStep?.outputJson" code />
     </div>
   </el-drawer>
 </template>
@@ -155,14 +155,14 @@ const drawerVisible = computed({
 })
 
 const nodePositions = {
-  PLANNER: { x: 10, y: 80 },
-  SEARCH: { x: 210, y: 0 },
-  READER: { x: 210, y: 80 },
-  RAG: { x: 210, y: 160 },
-  VISION: { x: 410, y: 0 },
-  TOOL: { x: 410, y: 160 },
-  CRITIC: { x: 610, y: 80 },
-  ANSWER: { x: 810, y: 80 }
+  PLANNER: { x: 10, y: 150 },
+  SEARCH: { x: 150, y: 20 },
+  READER: { x: 150, y: 100 },
+  RAG: { x: 150, y: 180 },
+  VISION: { x: 290, y: 60 },
+  TOOL: { x: 290, y: 180 },
+  CRITIC: { x: 150, y: 300 },
+  ANSWER: { x: 290, y: 300 }
 }
 const flowNodes = computed(() => Object.keys(nodePositions).map((agent) => ({
   id: agent,

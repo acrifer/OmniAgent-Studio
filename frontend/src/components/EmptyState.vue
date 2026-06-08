@@ -1,11 +1,13 @@
 <template>
-  <div class="empty-state">
-    <div class="empty-state__icon">
-      <component :is="icon" :size="28" />
+  <div class="empty-state" :class="{ 'is-compact': compact }">
+    <div class="empty-state__inner">
+      <div class="empty-state__icon">
+        <component :is="icon" :size="28" />
+      </div>
+      <strong>{{ title }}</strong>
+      <p>{{ description }}</p>
+      <slot />
     </div>
-    <strong>{{ title }}</strong>
-    <p>{{ description }}</p>
-    <slot />
   </div>
 </template>
 
@@ -15,6 +17,7 @@ import { Inbox } from 'lucide-vue-next'
 defineProps({
   icon: { type: Object, default: Inbox },
   title: String,
-  description: String
+  description: String,
+  compact: Boolean
 })
 </script>
