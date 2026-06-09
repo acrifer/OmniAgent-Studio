@@ -43,6 +43,7 @@ public class OmniAgentService {
     private final ToolConfigRepository toolConfigs;
     private final SkillConfigRepository skillConfigs;
     private final FastApiClient fastApiClient;
+    private final DeviceQuotaService quotas;
     private final Tika tika = new Tika();
     private final Path uploadDir;
 
@@ -61,6 +62,7 @@ public class OmniAgentService {
                             ToolConfigRepository toolConfigs,
                             SkillConfigRepository skillConfigs,
                             FastApiClient fastApiClient,
+                            DeviceQuotaService quotas,
                             @Value("${app.upload-dir}") String uploadDir) {
         this.conversations = conversations;
         this.messages = messages;
@@ -74,6 +76,7 @@ public class OmniAgentService {
         this.toolConfigs = toolConfigs;
         this.skillConfigs = skillConfigs;
         this.fastApiClient = fastApiClient;
+        this.quotas = quotas;
         this.uploadDir = Path.of(uploadDir);
     }
 
@@ -123,6 +126,7 @@ public class OmniAgentService {
 
     @Transactional
     public AgentRun startRun(Long userId, StartAgentRunRequest request) {
+        quotas.assertCanStartRun(userId);
         Conversation conversation = ensureConversationOwner(userId, request.conversationId());
         String question = request.question();
         Long messageId = request.messageId();
@@ -351,6 +355,7 @@ public class OmniAgentService {
             TokenUsageRecord record = new TokenUsageRecord();
             record.setRunId(run.getId());
             record.setConversationId(run.getConversationId());
+            record.setUserId(run.getUserId());
             record.setAgentType(event.agentType());
             record.setModelName(event.modelName());
             record.setPromptTokens(event.promptTokens());

@@ -2,10 +2,10 @@ services:
   mysql:
     image: mysql:8.4
     environment:
-      MYSQL_DATABASE: devmind
-      MYSQL_ROOT_PASSWORD: devmind-root
-      MYSQL_USER: devmind
-      MYSQL_PASSWORD: devmind-pass
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-devmind}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devmind-root}
+      MYSQL_USER: ${MYSQL_USER:-devmind}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-devmind-pass}
     ports:
       - "3306:3306"
     volumes:
@@ -30,7 +30,7 @@ services:
       - ./ai-service/.env
     environment:
       QDRANT_URL: http://qdrant:6333
-      INTERNAL_TOKEN: devmind-internal-token
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-devmind-internal-token}
     ports:
       - "8000:8000"
     depends_on:
@@ -40,12 +40,14 @@ services:
     build:
       context: ./backend
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/devmind?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-      SPRING_DATASOURCE_USERNAME: devmind
-      SPRING_DATASOURCE_PASSWORD: devmind-pass
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-devmind}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-devmind}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-devmind-pass}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
       APP_AI_SERVICE_BASE_URL: http://ai-service:8000
-      APP_INTERNAL_TOKEN: devmind-internal-token
+      APP_INTERNAL_TOKEN: ${INTERNAL_TOKEN:-devmind-internal-token}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-devmind-admin-token}
+      DEFAULT_DAILY_TOKEN_LIMIT: ${DEFAULT_DAILY_TOKEN_LIMIT:-50000}
     ports:
       - "18080:18080"
     volumes:

@@ -28,6 +28,7 @@ public class AgentTaskService {
     private final TokenUsageRecordRepository tokenRecords;
     private final ProjectService projectService;
     private final FastApiClient fastApiClient;
+    private final DeviceQuotaService quotas;
 
     @Value("${server.port}")
     private String serverPort;
@@ -37,17 +38,20 @@ public class AgentTaskService {
                             FinalReportRepository reports,
                             TokenUsageRecordRepository tokenRecords,
                             ProjectService projectService,
-                            FastApiClient fastApiClient) {
+                            FastApiClient fastApiClient,
+                            DeviceQuotaService quotas) {
         this.tasks = tasks;
         this.results = results;
         this.reports = reports;
         this.tokenRecords = tokenRecords;
         this.projectService = projectService;
         this.fastApiClient = fastApiClient;
+        this.quotas = quotas;
     }
 
     @Transactional
     public AgentTask start(Long userId, Long projectId, StartAgentTaskRequest request) {
+        quotas.assertCanStartRun(userId);
         Project project = projectService.ensureOwner(userId, projectId);
         ProjectRequirement requirement = projectService.latestRequirement(projectId);
         AgentTask task = new AgentTask();
@@ -84,6 +88,7 @@ public class AgentTaskService {
 
     @Transactional
     public AgentTask regenerate(Long userId, Long taskId, RegenerateRequest request) {
+        quotas.assertCanStartRun(userId);
         AgentTask oldTask = tasks.findById(taskId).orElseThrow();
         Project project = projectService.ensureOwner(userId, oldTask.getProjectId());
         ProjectRequirement requirement = projectService.latestRequirement(oldTask.getProjectId());
@@ -194,6 +199,7 @@ public class AgentTaskService {
             TokenUsageRecord record = new TokenUsageRecord();
             record.setTaskId(task.getId());
             record.setProjectId(task.getProjectId());
+            record.setUserId(task.getUserId());
             record.setAgentType(event.agentType());
             record.setModelName(event.modelName());
             record.setPromptTokens(event.promptTokens());

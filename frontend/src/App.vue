@@ -1,6 +1,5 @@
 <template>
-  <router-view v-if="$route.path === '/login'" />
-  <div v-else class="app-shell">
+  <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">O</div>
@@ -18,6 +17,7 @@
         <RouterLink to="/models"><SlidersHorizontal :size="18" />模型</RouterLink>
         <RouterLink to="/stats"><ChartNoAxesColumn :size="18" />统计</RouterLink>
         <RouterLink to="/feedback"><MessageSquareText :size="18" />反馈</RouterLink>
+        <RouterLink to="/admin"><Shield :size="18" />管理员</RouterLink>
       </nav>
       <div class="sidebar-footer">
         <strong>Operational Layer</strong>
@@ -46,8 +46,11 @@
               <span class="status-badge is-success">ONLINE</span>
             </div>
             <div class="title-row">
-              <span class="command-pill">API / Agent / RAG</span>
-              <el-button :icon="LogOut" @click="logout">退出</el-button>
+              <div class="topbar-meta">
+                <span class="command-pill">{{ deviceSummary }}</span>
+                <span class="command-pill">{{ quotaSummary }}</span>
+              </div>
+              <el-button :icon="RefreshCcw" @click="reloadQuota">刷新额度</el-button>
             </div>
           </div>
         </header>
@@ -58,12 +61,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { Bot, ChartNoAxesColumn, LayoutDashboard, LibraryBig, LogOut, MessageSquareText, SlidersHorizontal, Wrench } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { Bot, ChartNoAxesColumn, LayoutDashboard, LibraryBig, MessageSquareText, RefreshCcw, Shield, SlidersHorizontal, Wrench } from 'lucide-vue-next'
+import { deviceApi } from './api/http'
 
 const route = useRoute()
-const router = useRouter()
+const quota = ref(null)
 const meta = computed(() => {
   const map = {
     '/': {
@@ -107,6 +111,12 @@ const meta = computed(() => {
       title: '用户反馈',
       subtitle: '记录用户评分和改进意见，为 Prompt、RAG 和 Agent 输出提供反馈闭环。',
       tags: ['Score', 'Review', 'Loop']
+    },
+    '/admin': {
+      kicker: 'Quota Control',
+      title: '管理员控制台',
+      subtitle: '查看设备访问情况，调整白名单和每日 Token 额度，适配面试演示使用场景。',
+      tags: ['Device', 'Quota', 'Whitelist']
     }
   }
   return map[route.path] || {
@@ -117,9 +127,23 @@ const meta = computed(() => {
   }
 })
 
-function logout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  router.push('/login')
+const deviceSummary = computed(() => {
+  if (!quota.value) return '设备识别中'
+  return `设备 ${quota.value.shortDeviceId}`
+})
+
+const quotaSummary = computed(() => {
+  if (!quota.value) return '额度加载中'
+  if (quota.value.unlimitedQuota) return '白名单不限额'
+  return `今日 ${quota.value.usedToday} / ${quota.value.dailyLimit || 0}`
+})
+
+async function reloadQuota() {
+  const res = await deviceApi.quota()
+  quota.value = res.data
 }
+
+onMounted(async () => {
+  await reloadQuota()
+})
 </script>

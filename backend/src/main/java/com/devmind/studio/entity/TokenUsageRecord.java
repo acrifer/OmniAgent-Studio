@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "token_usage_records", indexes = {
         @Index(name = "idx_token_project_agent", columnList = "projectId,agentType"),
-        @Index(name = "idx_token_task", columnList = "taskId")
+        @Index(name = "idx_token_task", columnList = "taskId"),
+        @Index(name = "idx_token_user_created", columnList = "userId,createdAt")
 })
 public class TokenUsageRecord {
     @Id
@@ -22,6 +23,7 @@ public class TokenUsageRecord {
     private Long projectId;
     private Long runId;
     private Long conversationId;
+    private Long userId;
     private String agentType;
     private String modelName;
     private Integer promptTokens;

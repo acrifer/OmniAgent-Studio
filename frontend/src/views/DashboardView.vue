@@ -1,7 +1,7 @@
 <template>
   <section class="section-stack">
     <div class="console-grid">
-      <MetricCard class="span-4" label="会话总数" :value="conversations.length" hint="当前账号智能体会话" trend="Conversation archive" :icon="Bot" tone="cyan" />
+      <MetricCard class="span-4" label="会话总数" :value="conversations.length" hint="当前设备智能体会话" trend="Conversation archive" :icon="Bot" tone="cyan" />
       <MetricCard class="span-4" label="最近运行" :value="latestStatus" hint="Agent Run 状态" trend="Latest workflow status" :icon="Workflow" tone="green" />
       <MetricCard class="span-4" label="累计 Token" :value="totalTokens" hint="最近会话调用消耗" trend="Recent cost surface" :icon="Sparkles" tone="amber" />
     </div>
